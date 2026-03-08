@@ -22,6 +22,25 @@
 - Chrome Remote Accessでリモート操作可能
 - Claude Desktop / Claude for Chrome / Claude Web UI（同一アカウント統一）
 
+## アクセス環境
+
+- SamaritanVPS（Mac Mini）: Claude Code導入済み、主要な実行環境
+- スマートフォン: Claude Web UIチャットのみ。コード実行・ファイル操作不可
+- 秀樹さんの会社機: 個人情報リスクにより意図的にClaude Code未導入
+
+## Claude Code活用実績
+
+- 社内業務（工事進捗台帳のDB化）をWeb UIのCode機能で30分以内に完了
+- ガントチャート・検査スケジュール・赤字案件ハイライト付きHTMLダッシュボード生成
+- 役員会向け共有資料・マニュアルも同時生成・即配布
+
+## everything-claude-code について
+
+- リポジトリ: https://github.com/affaan-m/everything-claude-code
+- SamaritanVPS上のClaude Codeにインストール検討中
+- インストールコマンド: /plugin install everything-claude-code@everything-claude-code
+- 活用候補: Hooks（セッションサマリー）、skill-creator、instinct-creator
+
 ## 備考
 
 このファイルは随時更新する。
