@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SamaritanVPS AIオペレーション設計パターン</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    background: #0f1117;
+    color: #e8eaf0;
+    line-height: 1.6;
+  }
+
+  /* ヘッダー */
+  .hero {
+    background: linear-gradient(135deg, #1a1f35 0%, #0d1b2a 100%);
+    border-bottom: 1px solid #2a3555;
+    padding: 60px 40px 50px;
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #fff;
+    margin-bottom: 12px;
+  }
+  .hero .subtitle {
+    font-size: 1rem;
+    color: #7b8ab8;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .hero .badge {
+    display: inline-block;
+    background: #1e3a5f;
+    color: #5ba4cf;
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    border: 1px solid #2d5a8e;
+  }
+
+  /* メインレイアウト */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px;
+  }
+
+  /* セクションタイトル */
+  .section-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #5ba4cf;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #1e2d4a;
+  }
+
+  /* パターンカード */
+  .patterns-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    margin-bottom: 60px;
+  }
+  .card {
+    background: #161b2e;
+    border: 1px solid #1e2d4a;
+    border-radius: 12px;
+    padding: 28px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: #2d4a7a; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+  .card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+  .card-number {
+    font-size: 0.7rem;
+    color: #4a6080;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #c8d4f0;
+    margin-top: 2px;
+  }
+
+  /* フロー図 */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 16px 0;
+  }
+  .flow-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .flow-node {
+    background: #0f1117;
+    border: 1px solid #2a3555;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 0.82rem;
+    color: #a8b8d8;
+    white-space: nowrap;
+  }
+  .flow-node.highlight {
+    border-color: #2d5a8e;
+    background: #0d1e35;
+    color: #7ab8f5;
+  }
+  .flow-arrow {
+    color: #3a5070;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .flow-down {
+    text-align: center;
+    color: #3a5070;
+    font-size: 1rem;
+    line-height: 1;
+    margin: 2px 0;
+    padding-left: 14px;
+  }
+
+  .card-desc {
+    font-size: 0.83rem;
+    color: #6a7a9a;
+    line-height: 1.7;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #1a2440;
+  }
+
+  /* カラーバリアント */
+  .c-blue .card-icon { background: #0d1e35; color: #5ba4cf; }
+  .c-green .card-icon { background: #0d1f18; color: #4caf82; }
+  .c-purple .card-icon { background: #1a0d35; color: #9b72cf; }
+  .c-orange .card-icon { background: #1f1408; color: #cf8e4c; }
+  .c-teal .card-icon { background: #0d1f1e; color: #4cb8b0; }
+
+  /* 全体アーキテクチャ図 */
+  .arch-section {
+    background: #161b2e;
+    border: 1px solid #1e2d4a;
+    border-radius: 16px;
+    padding: 40px;
+    margin-bottom: 60px;
+  }
+  .arch-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #c8d4f0;
+    margin-bottom: 32px;
+    text-align: center;
+  }
+
+  .arch-diagram {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr 80px 1fr;
+    align-items: start;
+    gap: 0;
+  }
+  .arch-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .arch-arrow-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-top: 20px;
+  }
+  .arch-arrow {
+    color: #2d4a6a;
+    font-size: 1.5rem;
+  }
+
+  .arch-box {
+    background: #0f1117;
+    border: 1px solid #1e2d4a;
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .arch-box-label {
+    font-size: 0.7rem;
+    color: #4a6080;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .arch-box-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #a8b8d8;
+  }
+  .arch-box-sub {
+    font-size: 0.75rem;
+    color: #5a6a88;
+    margin-top: 4px;
+  }
+  .arch-box.primary {
+    border-color: #2d5a8e;
+    background: #0d1e35;
+  }
+  .arch-box.primary .arch-box-name { color: #7ab8f5; }
+
+  /* 実例セクション */
+  .examples-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 60px;
+  }
+  .example-card {
+    background: #161b2e;
+    border: 1px solid #1e2d4a;
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .example-tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .tag-live { background: #0d2e1a; color: #4caf82; border: 1px solid #1a4a2a; }
+  .tag-wip  { background: #1f1a08; color: #cfb24c; border: 1px solid #3a2e0a; }
+
+  .example-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #c8d4f0;
+    margin-bottom: 8px;
+  }
+  .example-patterns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .pattern-badge {
+    font-size: 0.7rem;
+    background: #0f1117;
+    border: 1px solid #2a3555;
+    color: #5a7098;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .example-desc {
+    font-size: 0.8rem;
+    color: #5a6a88;
+    line-height: 1.6;
+  }
+
+  /* フッター */
+  .footer {
+    text-align: center;
+    padding: 40px;
+    color: #3a4a68;
+    font-size: 0.8rem;
+    border-top: 1px solid #1a2440;
+  }
+
+  @media (max-width: 700px) {
+    .hero h1 { font-size: 1.5rem; }
+    .arch-diagram { grid-template-columns: 1fr; }
+    .arch-arrow-col { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="badge">SamaritanVPS · AI Operations</div>
+  <h1>AIオペレーション設計パターン</h1>
+  <p class="subtitle">秀樹さんのシステムに現れた、自律AIエージェント運用の共通構造</p>
+</div>
+
+<div class="container">
+
+  <!-- パターン一覧 -->
+  <div class="section-title">5つの設計パターン</div>
+
+  <div class="patterns-grid">
+
+    <!-- パターン1 -->
+    <div class="card c-blue">
+      <div class="card-header">
+        <div class="card-icon">🔍</div>
+        <div>
+          <div class="card-number">Pattern 01</div>
+          <div class="card-title">AI品質ゲート</div>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="flow-down">↓</div>
+        <div class="flow-node">コンテンツ生成</div>
+        <div class="flow-down">↓</div>
+        <div class="flow-node highlight">AIレビュー（Haiku）</div>
+        <div class="flow-down">↓ NG → 再生成（最大3回）</div>
+        <div class="flow-node">承認済み投稿</div>
+        <div class="flow-down">↓</div>
+        <div class="flow-node">SNS投稿</div>
+      </div>
+      <div class="card-desc">
+        AIがAIをチェックする構造。人間が都度確認しなくても品質が保たれる。NGの場合は修正コメントを次の生成に渡してリトライ。
+      </div>
+    </div>
+
+    <!-- パターン2 -->
+    <div class="card c-green">
+      <div class="card-header">
+        <div class="card-icon">📋</div>
+        <div>
+          <div class="card-number">Pattern 02</div>
+          <div class="card-title">キューベース処理</div>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="flow-node">情報源（Grokメール・指示）</div>
+        <div class="flow-down">↓ 非同期に積む</div>
+        <div class="flow-node highlight">queue.json</div>
+        <div class="flow-down">↓ 定期実行で消化</div>
+        <div class="flow-node">処理エージェント</div>
+        <div class="flow-down">↓</div>
+        <div class="flow-node">queue-done.json（記録）</div>
+      </div>
+      <div class="card-desc">
+        発注と処理を非同期に分離。誰が・いつ・何を積んだかが記録される。エージェントが止まっても積まれたタスクは残る。
+      </div>
+    </div>
+
+    <!-- パターン3 -->
+    <div class="card c-purple">
+      <div class="card-header">
+        <div class="card-icon">🧠</div>
+        <div>
+          <div class="card-number">Pattern 03</div>
+          <div class="card-title">収集→要約→アクション</div>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="flow-node">外部情報（X・ニュース・メール）</div>
+        <div class="flow-down">↓</div>
+        <div class="flow-node highlight">AIが分析・要約・選別</div>
+        <div class="flow-down">↓ 採用基準でフィルタ</div>
+        <div class="flow-node">投稿候補 or レポート</div>
+        <div class="flow-down">↓</div>
+        <div class="flow-node">キューに追加 / 通知</div>
+      </div>
+      <div class="card-desc">
+        インフルエンサーまとめ・Grokメール分析が該当。生データをそのまま投稿せず、AIが「意味のある情報」だけを選び出す。
+      </div>
+    </div>
+
+    <!-- パターン4 -->
+    <div class="card c-orange">
+      <div class="card-header">
+        <div class="card-icon">🤝</div>
+        <div>
+          <div class="card-number">Pattern 04</div>
+          <div class="card-title">マルチエージェント分業</div>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="flow-node highlight">GLM-5（企画・調整・受信）</div>
+        <div class="flow-down">↕ SSH（Tailscale）</div>
+        <div class="flow-node highlight">Mac Mini Claude（実行・品質保証）</div>
+        <div class="flow-down">↕ Telegram Bot API</div>
+        <div class="flow-node">秀樹さん（監督・方針決定）</div>
+      </div>
+      <div class="card-desc">
+        役割を持った複数のAIが協調。GLM-5が司令塔、Mac Mini Claudeが実行エンジン。人間は「承認と方針」だけ担う。
+      </div>
+    </div>
+
+    <!-- パターン5 -->
+    <div class="card c-teal">
+      <div class="card-header">
+        <div class="card-icon">💬</div>
+        <div>
+          <div class="card-number">Pattern 05</div>
+          <div class="card-title">Telegramハブ型UI</div>
+        </div>
+      </div>
+      <div class="flow">
+        <div class="flow-node">Narita Poster</div>
+        <div class="flow-row">
+          <div class="flow-node">Moltbook</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-node highlight">Telegramグループ</div>
+        </div>
+        <div class="flow-node">GLM-5</div>
+        <div class="flow-down">↓</div>
+        <div class="flow-node">秀樹さん（どのデバイスからでも）</div>
+      </div>
+      <div class="card-desc">
+        全エージェントの出力先を一本化。スマホ・PC・どこからでも同じ場所で把握できる。ログが会話として残る。
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 全体アーキテクチャ -->
+  <div class="section-title">全体アーキテクチャ</div>
+
+  <div class="arch-section">
+    <div class="arch-title">「AIが運用し、人間が監督する」構造</div>
+    <div class="arch-diagram">
+
+      <div class="arch-col">
+        <div class="arch-box">
+          <div class="arch-box-label">情報源</div>
+          <div class="arch-box-name">X / Grokメール</div>
+          <div class="arch-box-sub">ニュース・活動データ</div>
+        </div>
+        <div class="arch-box">
+          <div class="arch-box-label">情報源</div>
+          <div class="arch-box-name">成田市362店舗</div>
+          <div class="arch-box-sub">narita_shops.json</div>
+        </div>
+        <div class="arch-box">
+          <div class="arch-box-label">情報源</div>
+          <div class="arch-box-name">秀樹さんの指示</div>
+          <div class="arch-box-sub">Telegram / 直接</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow-col">
+        <div class="arch-arrow">→</div>
+      </div>
+
+      <div class="arch-col">
+        <div class="arch-box primary">
+          <div class="arch-box-label">実行エンジン</div>
+          <div class="arch-box-name">Mac Mini Claude</div>
+          <div class="arch-box-sub">Narita Poster · ask-narita</div>
+        </div>
+        <div class="arch-box primary">
+          <div class="arch-box-label">自律エージェント</div>
+          <div class="arch-box-name">GLM-5 / OpenClaw</div>
+          <div class="arch-box-sub">Moltbook · 調整・連携</div>
+        </div>
+        <div class="arch-box">
+          <div class="arch-box-label">品質チェック</div>
+          <div class="arch-box-name">Claude Haiku</div>
+          <div class="arch-box-sub">翻訳 · レビュー</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow-col">
+        <div class="arch-arrow">→</div>
+      </div>
+
+      <div class="arch-col">
+        <div class="arch-box">
+          <div class="arch-box-label">アウトプット</div>
+          <div class="arch-box-name">X（Twitter）</div>
+          <div class="arch-box-sub">6言語 · 自動投稿</div>
+        </div>
+        <div class="arch-box">
+          <div class="arch-box-label">アウトプット</div>
+          <div class="arch-box-name">Moltbook</div>
+          <div class="arch-box-sub">AIエージェントSNS</div>
+        </div>
+        <div class="arch-box primary">
+          <div class="arch-box-label">監督UI</div>
+          <div class="arch-box-name">Telegram</div>
+          <div class="arch-box-sub">Conversationグループ</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 実例 -->
+  <div class="section-title">現在稼働中のシステム</div>
+
+  <div class="examples-grid">
+    <div class="example-card">
+      <span class="example-tag tag-live">稼働中</span>
+      <div class="example-name">Narita Poster</div>
+      <div class="example-desc">成田市362店舗を6言語でXに毎時自動投稿。翻訳→レビュー→投稿のフルサイクル。</div>
+      <div class="example-patterns">
+        <span class="pattern-badge">P01 品質ゲート</span>
+        <span class="pattern-badge">P05 Telegramハブ</span>
+      </div>
+    </div>
+    <div class="example-card">
+      <span class="example-tag tag-live">稼働中</span>
+      <div class="example-name">Moltbook Heartbeat</div>
+      <div class="example-desc">3時間ごとにMoltbookフィードを確認・リプライ・アップボート。Grokメールから投稿候補を選定。</div>
+      <div class="example-patterns">
+        <span class="pattern-badge">P02 キューベース</span>
+        <span class="pattern-badge">P03 収集→要約</span>
+      </div>
+    </div>
+    <div class="example-card">
+      <span class="example-tag tag-live">稼働中</span>
+      <div class="example-name">@narita 転送スクリプト</div>
+      <div class="example-desc">GLM-5が「@narita 質問」を受信→SSH→Mac Mini Claude→Telegram返信。マルチエージェント連携の実装。</div>
+      <div class="example-patterns">
+        <span class="pattern-badge">P04 マルチエージェント</span>
+        <span class="pattern-badge">P05 Telegramハブ</span>
+      </div>
+    </div>
+    <div class="example-card">
+      <span class="example-tag tag-wip">構築中</span>
+      <div class="example-name">インフルエンサー分析</div>
+      <div class="example-desc">X上の成田関連インフルエンサーの活動を定期収集・要約・Telegram報告。</div>
+      <div class="example-patterns">
+        <span class="pattern-badge">P03 収集→要約</span>
+        <span class="pattern-badge">P05 Telegramハブ</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  SamaritanVPS AIオペレーション設計パターン · 2026-03-26 · Narita Claude（Mac Mini）
+</div>
+
+</body>
+</html>
