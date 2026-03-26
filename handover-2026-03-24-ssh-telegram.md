@@ -90,8 +90,59 @@ echo "質問内容" | ssh samaritanvps@100.64.138.21 /Users/samaritanvps/bin/ask
 
 ---
 
+## インフルエンサー活動チェック機能（2026-03-25追加）
+
+### 概要
+成田関連インフルエンサー12アカウントの過去24時間のX投稿を自動収集し、Claude Haikuでレポート生成してTelegramグループに送信する。
+
+### 対象アカウント（12件）
+| username | ラベル |
+|----------|--------|
+| unarikun_narita | うなりくん（成田市公式マスコット） |
+| shimurayusuke | シムラユウスケ（ふわりの森） |
+| 1991mazda787B | 1991mazda787B（成田空港航空写真） |
+| KEITAROinNRT | けーたろー（成田在住・地域活動） |
+| HOUEICOFFEE | HOUEI COFFEE（成田山門前カフェ） |
+| furusho_charlie | 古庄チャーリィ（プロ航空カメラマン） |
+| ikarosairline | 月刊エアライン編集部 |
+| nari_map | なりまっぷ（成田市情報発信） |
+| miyatch_camera | ミヤッチカメラ |
+| naritarisa | 成田梨紗 |
+| naritacity_ | 成田市公式（観光・文化・スポーツ） |
+| narita_fudou | 大本山成田山新勝寺公式 |
+
+### ファイル構成
+| 項目 | パス |
+|------|------|
+| スクリプト | `/Users/samaritanvps/narita-poster/scripts/narita_influencer_check.mjs` |
+| launchd plist | `/Users/samaritanvps/Library/LaunchAgents/com.samaritanvps.narita-influencer-check.plist` |
+| ログ | `/Users/samaritanvps/narita-poster/logs/influencer_check.log` |
+
+### 処理フロー
+1. Twitter API v2（Bearer Token / App-only）でユーザーIDを一括解決
+2. 各アカウントの過去24時間のツイートを取得（リツイート除く、最大10件）
+3. Claude Haiku（`claude-haiku-4-5-20251001`）でレポート生成
+4. Telegram グループ（-5157654919）に送信
+
+### 実行スケジュール
+- **毎日 18:00 JST**（launchd）
+- 手動実行: `node /Users/samaritanvps/narita-poster/scripts/narita_influencer_check.mjs`
+
+### 使用API・環境変数
+- `TWITTER_API_KEY` / `TWITTER_API_SECRET` — Bearer Token取得に使用
+- `ANTHROPIC_API_KEY` — Claude Haiku呼び出し
+- Telegram Token — `~/.claude/channels/telegram/.env` から読み込み（ハードコード済み）
+
+### 既知の問題・注意点
+- **Anthropic APIクレジット不足時**: Haiku が HTTP 400 を返すが、スクリプトはエラーログなしに `（レポート生成失敗）` にフォールバックする（2026-03-25発生・クレジット補給で解決）
+- Twitter API Bearer Tokenは読み取り専用（App-only）のため投稿には使えない
+- Telegram送信先トークンはスクリプト内にハードコード（将来的に.env管理推奨）
+
+---
+
 ## 残課題
 
 1. **TailscaleのACL設定**: GLM-5→Mac Mini のSSH（ポート22）のみ許可に絞る
 2. **GLM-5の@narita自動検出**: OpenClaw側でTelegramメッセージの `@narita` 検出・SSH呼び出しの実装（藤岡さん担当）
 3. **tmuxの導入**: Homebrewインストール後（hidekih権限が必要）に実施
+4. **influencer_check.mjs のエラーハンドリング強化**: Haiku API 400エラーをログに明示的に記録する
