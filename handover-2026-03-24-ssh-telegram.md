@@ -1,5 +1,5 @@
 # 引き継ぎメモ: SSH接続 & Telegram連携
-2026-03-24
+2026-03-24（最終更新: 2026-03-29）
 
 ## 概要
 Mac Mini（Narita Claude）とGLM-5（SamaritanVPS/OpenClaw）間のSSH接続、およびTelegram連携の設定記録。
@@ -17,6 +17,17 @@ Mac Mini（Narita Claude）とGLM-5（SamaritanVPS/OpenClaw）間のSSH接続、
 
 **重要**: GLM-5はDockerコンテナ内でTailscaleデーモンを起動しなくても、
 ホストVPS（x85-131-253-82）のTailscaleルーティング経由でMac Miniに到達可能。
+
+### Tailscaleトラブル時の復旧手順（2026-03-29 実績）
+
+Tailscaleが停止して接続不能になることがある。以下で復旧する：
+
+```bash
+/Applications/Tailscale.app/Contents/MacOS/Tailscale up --reset
+/Applications/Tailscale.app/Contents/MacOS/Tailscale status
+```
+
+`hidekim1` の状態が `offline` → `-`（アイドル）に変わればOK。
 
 ---
 
@@ -36,6 +47,11 @@ Mac Mini（Narita Claude）とGLM-5（SamaritanVPS/OpenClaw）間のSSH接続、
 ### スマホ（Termux） → Mac Mini
 - TailscaleをAndroidにインストール済み
 - Termuxで `ssh samaritanvps@100.64.138.21` で接続可能
+
+### sshdトラブル時の復旧（2026-03-29 実績）
+
+sshdが停止してSSH接続不能になることがある。
+**System Settings → General → Sharing → Remote Login → オン** で有効化できる。
 
 ---
 
@@ -59,13 +75,18 @@ Mac Mini（Narita Claude）とGLM-5（SamaritanVPS/OpenClaw）間のSSH接続、
 ## @narita転送スクリプト
 
 ### 概要
-GLM-5がTelegramで `@narita 質問` を受信 → SSH → Mac Mini → Claude処理 → Telegramグループ返信
+GLM-5がTelegramで `@narita 質問` を受信 → SSH → Mac Mini → Anthropic API呼び出し → Telegramグループ返信
 
 ### スクリプト: `/Users/samaritanvps/bin/ask-narita.sh`
 - **権限**: 700（オーナーのみ）
 - **入力**: 標準入力（インジェクション対策）
-- **Claude**: 絶対パス `/Users/samaritanvps/.npm-global/bin/claude` を使用
+- **モデル**: Claude Sonnet 4.6（`/Users/samaritanvps/bin/ask-narita-api.mjs` 経由でAPI直接呼び出し）
 - **ログ**: `~/narita-relay/relay.log`（会話内容は記録しない）
+
+### 認証について（重要）
+- `claude -p` コマンドはSSHセッションからmacOSキーチェーンにアクセスできないためOAuth不可
+- `ANTHROPIC_API_KEY`（`narita-poster/.env`）を使ってAnthropicAPIを直接呼び出す方式に変更済み
+- APIクレジットが不足すると "Credit balance is too low" でエラーになる → console.anthropic.com で補充
 
 ### GLM-5からの呼び出し方
 ```bash
@@ -74,6 +95,26 @@ echo "質問内容" | ssh samaritanvps@100.64.138.21 /Users/samaritanvps/bin/ask
 
 **注意**: `~/bin/ask-narita.sh` は不可（GLM-5がrootユーザーのため `/root/bin/` に展開される）。
 必ず絶対パスで呼び出すこと。
+
+---
+
+## スリープ対策（2026-03-27 更新）
+
+### 問題
+`caffeinate -i`（アイドルスリープのみ防止）では深夜にMaintenance Sleep（DarkWake）が発生し、
+SSH接続が深夜0時〜朝5時頃に切断される問題があった。
+
+### 解決策
+`caffeinate -s`（システムスリープ自体を防止）に変更。`~/.zprofile` に設定済み：
+
+```bash
+pgrep caffeinate || caffeinate -s &
+```
+
+手動で再起動する場合：
+```bash
+pkill caffeinate && caffeinate -s &
+```
 
 ---
 
@@ -128,15 +169,9 @@ echo "質問内容" | ssh samaritanvps@100.64.138.21 /Users/samaritanvps/bin/ask
 - **毎日 18:00 JST**（launchd）
 - 手動実行: `node /Users/samaritanvps/narita-poster/scripts/narita_influencer_check.mjs`
 
-### 使用API・環境変数
-- `TWITTER_API_KEY` / `TWITTER_API_SECRET` — Bearer Token取得に使用
-- `ANTHROPIC_API_KEY` — Claude Haiku呼び出し
-- Telegram Token — `~/.claude/channels/telegram/.env` から読み込み（ハードコード済み）
-
 ### 既知の問題・注意点
-- **Anthropic APIクレジット不足時**: Haiku が HTTP 400 を返すが、スクリプトはエラーログなしに `（レポート生成失敗）` にフォールバックする（2026-03-25発生・クレジット補給で解決）
+- **Anthropic APIクレジット不足時**: Haiku が HTTP 400 を返すが、スクリプトはエラーログなしに `（レポート生成失敗）` にフォールバックする
 - Twitter API Bearer Tokenは読み取り専用（App-only）のため投稿には使えない
-- Telegram送信先トークンはスクリプト内にハードコード（将来的に.env管理推奨）
 
 ---
 
